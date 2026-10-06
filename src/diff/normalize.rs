@@ -52,6 +52,38 @@ impl NormalizedBlob {
     }
 }
 
+impl std::fmt::Display for NormalizedBlob {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "## header")?;
+        for line in &self.header {
+            writeln!(f, "{line}")?;
+        }
+
+        for section in &self.sections {
+            writeln!(f, "\n## {} {}", section.category, section.key)?;
+            for line in &section.lines {
+                writeln!(f, "{line}")?;
+            }
+        }
+
+        let tables = [
+            ("string table", &self.string_table),
+            ("import types", &self.import_types),
+            ("import properties", &self.import_properties),
+            ("import functions", &self.import_functions),
+        ];
+
+        for (title, entries) in tables {
+            writeln!(f, "\n## {title} ({})", entries.len())?;
+            for (index, entry) in entries.iter().enumerate() {
+                writeln!(f, "{index}: {entry}")?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Default)]
 struct SectionList {
     sections: Vec<Section>,

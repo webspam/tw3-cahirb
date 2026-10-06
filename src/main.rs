@@ -14,6 +14,7 @@ fn main() {
 
     match args.as_slice() {
         [command, path] if command == "roundtrip" => return roundtrip(path),
+        [command, path] if command == "dump" => return dump(path),
         [command, expected, actual] if command == "diff" => return diff(expected, actual),
         _ => {}
     }
@@ -52,6 +53,12 @@ fn main() {
 
     // decompile_bytecode(blob);
     parse_and_emit_instructions(blob);
+}
+
+fn dump(path: &str) {
+    let blob = parser::RsBlob::from_file(path);
+
+    print!("{}", diff::NormalizedBlob::from_blob(&blob));
 }
 
 fn diff(expected_path: &str, actual_path: &str) {
