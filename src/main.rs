@@ -6,16 +6,16 @@ use orx_parallel::{IntoParIter, ParIter};
 use crate::parser::{WithInstructionEmitting, WithTableResolving, ast::FunctionDefinition};
 
 mod decompiler;
+mod diff;
 mod parser;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
-    if let [command, path] = args.as_slice()
-        && command == "roundtrip"
-    {
-        roundtrip(path);
-        return;
+    match args.as_slice() {
+        [command, path] if command == "roundtrip" => return roundtrip(path),
+        [command, expected, actual] if command == "diff" => return diff(expected, actual),
+        _ => {}
     }
 
     let blob = {
@@ -52,6 +52,22 @@ fn main() {
 
     // decompile_bytecode(blob);
     parse_and_emit_instructions(blob);
+}
+
+fn diff(expected_path: &str, actual_path: &str) {
+    let expected_bytes = std::fs::read(expected_path).expect("failed to read expected .rsblob");
+    let actual_bytes = std::fs::read(actual_path).expect("failed to read actual .rsblob");
+
+    if expected_bytes == actual_bytes {
+        println!("✔️ byte identical ({} bytes)", expected_bytes.len());
+        return;
+    }
+
+    let expected = parser::RsBlob::from_bytes(&expected_bytes);
+    let actual = parser::RsBlob::from_bytes(&actual_bytes);
+
+    print!("{}", diff::diff_blobs(&expected, &actual));
+    std::process::exit(1);
 }
 
 fn roundtrip(path: &str) {
