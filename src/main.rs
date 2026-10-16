@@ -16,6 +16,9 @@ fn main() {
         [command, path] if command == "roundtrip" => return roundtrip(path),
         [command, path] if command == "dump" => return dump(path),
         [command, expected, actual] if command == "diff" => return diff(expected, actual),
+        [command, input, output, proxy, native] if command == "retarget-field" => {
+            return retarget_field(input, output, proxy, native);
+        }
         _ => {}
     }
 
@@ -75,6 +78,37 @@ fn diff(expected_path: &str, actual_path: &str) {
 
     print!("{}", diff::diff_blobs(&expected, &actual));
     std::process::exit(1);
+}
+
+fn retarget_field(input_path: &str, output_path: &str, proxy_name: &str, native_name: &str) {
+    use parser::WithWriting;
+
+    let mut blob = parser::RsBlob::from_file(input_path);
+
+    assert!(
+        !blob.string_table.iter().any(|s| s == native_name),
+        "'{native_name}' already in string table"
+    );
+
+    let proxy_index =
+        blob.string_table
+            .iter()
+            .position(|s| s == proxy_name)
+            .unwrap_or_else(|| panic!("'{proxy_name}' not in string table")) as u32;
+
+    let fields_before = blob.ext_add_properties.len();
+    blob.ext_add_properties
+        .retain(|field| field.name.string_index() != proxy_index);
+    assert_eq!(
+        fields_before - blob.ext_add_properties.len(),
+        1,
+        "Multiple @addField called '{proxy_name}' - must be unique"
+    );
+
+    blob.string_table[proxy_index as usize] = native_name.to_owned();
+
+    std::fs::write(output_path, blob.to_bytes()).expect("failed to write .rsblob");
+    println!("☑️ {proxy_name} -> {native_name}, @addField removed, wrote {output_path}");
 }
 
 fn roundtrip(path: &str) {
